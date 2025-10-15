@@ -1,9 +1,14 @@
 package handlers
 
 import (
+	"encoding/json"
 	"gorm/db"
 	"gorm/models"
 	"net/http"
+	"strconv"
+
+	"github.com/gorilla/mux"
+	"gorm.io/gorm"
 )
 
 func GetUsers(rw http.ResponseWriter, r *http.Request) {
@@ -13,14 +18,27 @@ func GetUsers(rw http.ResponseWriter, r *http.Request) {
 	sendData(rw, users, http.StatusOK)
 }
 
-/*
+
 func GetUser(rw http.ResponseWriter, r *http.Request) {
 
-	if user, err := getUserByRequest(r); err != nil {
-		models.SendNotFound(rw)
+	if user, err := getUserById(r); err != nil {
+		sendError(rw, http.StatusNotFound)
 	} else {
-		models.SendData(rw, user)
+		sendData(rw, user, http.StatusOK)
 	}
+}
+
+func getUserById(r *http.Request) (models.User, *gorm.DB) {
+	
+	vars := mux.Vars(r)
+	userId, _ := strconv.Atoi(vars["id"])
+
+	user := models.User{}
+	if err := db.DataBase.First(&user, userId); err.Error != nil {
+		return user, err
+	} 
+
+	return user, nil
 }
 
 func CreateUser(rw http.ResponseWriter, r *http.Request) {
@@ -29,52 +47,40 @@ func CreateUser(rw http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 
 	if err := decoder.Decode(&user); err != nil {
-		models.SendUnprocessableEntity(rw)
+		sendError(rw, http.StatusUnprocessableEntity)
 	} else {
-		user.Save()
-		models.SendData(rw, user)
+		db.DataBase.Save(&user)
+		sendData(rw, user, http.StatusCreated)
 	}
 }
+
+
 func UpdateUser(rw http.ResponseWriter, r *http.Request) {
-	//Obtener ID
-	var userId int64
-	if user, err := getUserByRequest(r); err != nil {
-		models.SendNotFound(rw)
+	
+	if userPrev, err := getUserById(r); err != nil {
+		sendError(rw, http.StatusNotFound)
 	} else {
-		userId = user.Id
-	}
+		userId := userPrev.Id
+		user := models.User{}
+		decoder := json.NewDecoder(r.Body)
 
-	user := models.User{}
-	decoder := json.NewDecoder(r.Body)
-
-	if err := decoder.Decode(&user); err != nil {
-		models.SendUnprocessableEntity(rw)
-	} else {
-		user.Id = userId
-		user.Save()
-		models.SendData(rw, user)
+		if err := decoder.Decode(&user); err != nil {
+			sendError(rw, http.StatusUnprocessableEntity)
+		} else {
+			user.Id = userId
+			db.DataBase.Save(&user)
+			sendData(rw, user, http.StatusOK)
+		}
 	}
 
 }
+
 func DeleteUser(rw http.ResponseWriter, r *http.Request) {
 
-	if user, err := getUserByRequest(r); err != nil {
-		models.SendNotFound(rw)
+	if user, err := getUserById(r); err != nil {
+		sendError(rw, http.StatusNotFound)
 	} else {
-		user.Delete()
-		models.SendData(rw, user)
+		db.DataBase.Delete(&user)
+		sendData(rw, user, http.StatusOK)
 	}
 }
-
-func getUserByRequest(r *http.Request) (models.User, error) {
-	//Obtener ID
-	vars := mux.Vars(r)
-	userId, _ := strconv.Atoi(vars["id"])
-
-	if user, err := models.GetUser(userId); err != nil {
-		return *user, err
-	} else {
-		return *user, nil
-	}
-}
-*/
